@@ -1,12 +1,13 @@
 const { findOneAccount, findOnePhoneNumber} = require('../services/sms/sms')
 const { requestValidation} = require('../services/validation/validation')
 const Redis = require('redis')
+require('dotenv').config()
 
-const redisClient = Redis.createClient()
+const redisClient = Redis.createClient({URL:process.env.REDIS_URL})
 
 exports.inbound = async (req, res) => {
+    
     try {
-        
         // Validation
         const { error } = requestValidation(req.body)
 
