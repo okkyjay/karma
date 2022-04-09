@@ -36,3 +36,10 @@ Seed data into DB
 ### `npm run undo-seed`
 
 Rollsback the data seeded
+
+### headers for authorization
+  - auth_id
+  - username
+
+
+#### Heroku https://moneykarmaapi.herokuapp.com/
