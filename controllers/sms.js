@@ -1,9 +1,16 @@
 const { findOneAccount, findOnePhoneNumber} = require('../services/sms/sms')
 const { requestValidation} = require('../services/validation/validation')
-const Redis = require('redis')
+const { createClient } = require('redis')
 require('dotenv').config()
 
-const redisClient = Redis.createClient({url:process.env.REDIS_URL})
+
+const redisClient = createClient({
+    url:process.env.REDIS_URL,
+    socket: {
+      tls: true,
+      rejectUnauthorized: false
+    }
+  });
 
 exports.inbound = async (req, res) => {
     
@@ -36,12 +43,16 @@ exports.inbound = async (req, res) => {
               })
         }
 
+        await redisClient.connect()
+
         if(text.includes("STOP") || text.toString().toLowerCase().includes("stop")){
             const expiration = 3600 * 4
             let data = {from:from,to:to} 
-            redisClient.setEx(`${to.from}`, expiration, JSON.stringify(data))
+            await redisClient.setEx(`${to.from}`, expiration, JSON.stringify(data))
         }
-        return res.status.send({
+
+        await redisClient.disconnect()
+        return res.status(200).send({
             status: true,
             message: "inbound sms ok",
             error:""
@@ -50,7 +61,7 @@ exports.inbound = async (req, res) => {
         return res.status(403).send({
             status: "false",
             message: "",
-            error: "unknown failure"
+            error: error.message
         })   
     }   
 }
@@ -69,11 +80,12 @@ exports.outbound = async (req, res) => {
     }
 
     const { from, text, to} = req.body
-
+    await redisClient.connect()
     // If the pair ‘to’, ‘from’ matches any entry in cache (STOP)
     redisClient.get(`${to.from}`, async( error, hit) => {
         if(error) console.log(error)
         if(hit !== null){
+            await redisClient.disconnect()
             return res.status(403).send({
                 status: 'false',
                 error: `sms from ${from} to ${to} blocked by STOP request`,
@@ -88,6 +100,7 @@ exports.outbound = async (req, res) => {
             const toNumberExist =  await findOnePhoneNumber({account_id:account.id, number:from})
 
             if(toNumberExist === null){
+                await redisClient.disconnect()
                 return res.status(403).send({
                     status: 'false',
                     error: `${from} parameter not found`,
@@ -97,6 +110,7 @@ exports.outbound = async (req, res) => {
 
             redisClient.get(`outbound.${tfrom}`, async( error, limit) => {
                 if(limit !== null && parseInt(limit) > 50){
+                    await redisClient.disconnect()
                     return res.status(403).send({
                         status: 'false',
                         error: `limit reached for from  ${from}`,
@@ -106,9 +120,9 @@ exports.outbound = async (req, res) => {
                     const expiration = 3600 * 24
                     limit = limit || 0
                     limit = parseInt(limit) + 1 
-                    redisClient.setEx(`outbound.${from}`, expiration, limit)
-
-                    return res.status.send({
+                    await redisClient.setEx(`outbound.${from}`, expiration, limit)
+                    await redisClient.connect()
+                    return res.status(200).send({
                         status: true,
                         message: "outbound sms ok",
                         error:""
@@ -124,4 +138,11 @@ exports.outbound = async (req, res) => {
             error: "unknown failure"
         })
     }
+}
+
+exports.default = async (req, res) => {
+    res.status(405).send({
+        status: 405,
+        err: 'Sorry! cant find that'
+      })
 }
