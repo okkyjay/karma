@@ -3,7 +3,7 @@ const { requestValidation} = require('../services/validation/validation')
 const Redis = require('redis')
 require('dotenv').config()
 
-const redisClient = Redis.createClient({URL:process.env.REDIS_URL})
+const redisClient = Redis.createClient({url:process.env.REDIS_URL})
 
 exports.inbound = async (req, res) => {
     
