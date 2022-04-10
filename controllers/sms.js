@@ -108,7 +108,7 @@ exports.outbound = async (req, res) => {
                 })
             }
 
-            redisClient.get(`outbound.${tfrom}`, async( error, limit) => {
+            redisClient.get(`outbound.${from}`, async( error, limit) => {
                 if(limit !== null && parseInt(limit) > 50){
                     await redisClient.disconnect()
                     return res.status(403).send({
